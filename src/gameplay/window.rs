@@ -4,6 +4,7 @@ mod scene;
 
 use super::{
     geometry::Point,
+    server::{MatchServer, Order},
     simulation::{Game, PLAYER},
 };
 use crate::{
@@ -48,13 +49,12 @@ const R: u16 = 208;
 
 const ABILITIES: [(u16, u32, &str); 4] = [(Q, 0, "Q"), (W, 2, "W"), (E, 1, "E"), (R, 3, "R")];
 const TIMER: usize = 1;
-const FIXED_STEP: f32 = 1.0 / 60.0;
 const CAMERA_SPEED: f32 = 700.;
 
 struct Round {
     game: Game,
     last_tick: Instant,
-    remaining_time: f32,
+    server: MatchServer,
 }
 
 fn button_hero(id: u16) -> Option<Hero> {
@@ -402,7 +402,15 @@ fn update_camera(window: HWND, state: &MatchWindow, game: &Game, dt: f32) {
 }
 
 fn start(window: HWND, state: &MatchWindow) {
-    let game = Game::with_hero(state.hero.get());
+    let server = match MatchServer::start(state.hero.get()) {
+        Ok(server) => server,
+        Err(error) => {
+            let message: Vec<_> = format!("Nie udało się uruchomić serwera meczu: {error}").encode_utf16().chain([0]).collect();
+            unsafe { MessageBoxW(window, message.as_ptr(), TITLE, MB_OK | MB_ICONERROR) };
+            return;
+        }
+    };
+    let game = server.snapshot();
     let spawn = game.units[PLAYER].position;
     state.camera.set(spawn);
     state.aim.set(spawn);
@@ -411,7 +419,7 @@ fn start(window: HWND, state: &MatchWindow) {
     state.round.replace(Some(Round {
         game,
         last_tick: Instant::now(),
-        remaining_time: 0.,
+        server,
     }));
     if unsafe { SetTimer(window, TIMER, 16, None) } == 0 {
         state.round.replace(None);
@@ -429,17 +437,18 @@ fn start(window: HWND, state: &MatchWindow) {
 }
 
 fn timer(window: HWND, state: &MatchWindow) {
+    if state.round.borrow().as_ref().is_some_and(|r| r.server.disconnected()) {
+        command(window, state, CHANGE);
+        unsafe { MessageBoxW(window, w!("Utracono połączenie z lokalnym serwerem meczu."), TITLE, MB_OK | MB_ICONERROR) };
+        return;
+    }
     let outcome = {
         let mut stored = state.round.borrow_mut();
         let Some(round) = stored.as_mut() else { return };
         let now = Instant::now();
         let elapsed = (now - round.last_tick).as_secs_f32().min(0.1);
-        round.remaining_time += elapsed;
         round.last_tick = now;
-        while round.remaining_time >= FIXED_STEP {
-            round.game.step(FIXED_STEP);
-            round.remaining_time -= FIXED_STEP;
-        }
+        round.game = round.server.snapshot();
         if state.follow.get() {
             let player = round.game.units[PLAYER];
             if player.alive() {
@@ -483,7 +492,7 @@ fn command(window: HWND, state: &MatchWindow, id: u16) {
         Q | W | E | R => {
             if let Some(round) = state.round.borrow_mut().as_mut() {
                 if let Some((_, slot, _)) = ABILITIES.iter().find(|(button, _, _)| *button == id) {
-                    round.game.cast(PLAYER, *slot, state.aim.get());
+                    round.server.send(Order::Cast(*slot as u8, state.aim.get()));
                 }
             }
         }
@@ -499,6 +508,7 @@ pub(crate) fn route(window: HWND, message: &MSG) -> bool {
     if message.message == WM_KEYDOWN {
         match message.wParam as u32 {
             0x51 | 0x45 | 0x57 | 0x52 => {
+                if message.lParam & (1 << 30) != 0 { return true; }
                 let id = match message.wParam {
                     0x51 => Q,
                     0x57 => W,
@@ -536,7 +546,7 @@ pub(crate) fn route(window: HWND, message: &MSG) -> bool {
                 let Some(round) = active.as_mut() else { return false };
                 if round.game.result != 0 || message.lParam & (1 << 30) != 0 { return true; }
                 match key {
-                    0x53 => round.game.stop_player(),
+                    0x53 => round.server.send(Order::Stop),
                     0x54 => {
                         let mut mouse = POINT::default();
                         let area = viewport(window);
@@ -545,7 +555,7 @@ pub(crate) fn route(window: HWND, message: &MSG) -> bool {
                             && mouse.x >= 0 && mouse.x < area.right && mouse.y >= 0 && mouse.y < area.bottom {
                             let camera = scene::Camera::at(board(area), state.camera.get(), state.top_down.get());
                             let point = minimap::world_at(area, mouse).unwrap_or_else(|| camera.ground(mouse.x, mouse.y));
-                            round.game.attack_unit_near(point);
+                            round.server.send(Order::Attack(point));
                         }
                     }
                     0x41 => state.show_range.set(true),
@@ -635,7 +645,7 @@ unsafe extern "system" fn proc(
                 ) {
                     state.aim.set(point);
                     if message != WM_MOUSEMOVE {
-                        round.game.command(point);
+                        round.server.send(Order::Move(point));
                         unsafe { SetFocus(window) };
                     }
                 }
@@ -692,6 +702,12 @@ mod tests {
                 assert!(state.show_range.get());
                 SendMessageW(view, WM_LBUTTONDOWN, 0, pos as isize);
                 assert!(!state.show_range.get());
+                let deadline = Instant::now() + std::time::Duration::from_secs(2);
+                while state.round.borrow().as_ref().unwrap().game.units[PLAYER].cooldown(0) == 0. {
+                    assert!(Instant::now() < deadline);
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                    timer(view, &state);
+                }
                 {
                 let round = state.round.borrow();
                 let round = round.as_ref().unwrap();

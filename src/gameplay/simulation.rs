@@ -1,3 +1,7 @@
+#[path = "../characters/taran/abilities.rs"]
+mod taran_kit;
+#[path = "../characters/nera/abilities.rs"]
+mod nera_kit;
 mod abilities;
 mod effects;
 
@@ -280,6 +284,7 @@ impl Unit {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct Shot {
     pub(crate) side: Side,
     pub(crate) position: Point,
@@ -303,6 +308,7 @@ impl Shot {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct Bolt {
     pub(crate) side: Side,
     pub(crate) from: Point,
@@ -315,6 +321,7 @@ pub(crate) struct Bolt {
     duration: f32,
 }
 
+#[derive(Clone)]
 pub(crate) struct Mark {
     pub(crate) from: Point,
     pub(crate) to: Point,
@@ -322,6 +329,7 @@ pub(crate) struct Mark {
     remaining: f32,
 }
 
+#[derive(Clone)]
 pub(crate) struct Game {
     pub(crate) units: [Unit; UNIT_COUNT],
     pub(crate) destination: Point,
@@ -641,65 +649,9 @@ impl Game {
             self.featured_cast(source, hero, slot, point);
             return;
         }
-        let unit = self.units[source];
-        let aim = point - unit.position;
-        if self.result != 0 || !unit.alive() || unit.status.stun > 0. || aim.length() < 1. {
-            return;
-        }
-        let direction = aim.direction();
-        match slot {
-            0 if unit.q <= 0. && unit.kind == Kind::Taran => {
-                self.units[source].q = taran::Q.cooldown;
-                self.mark(
-                    unit.position,
-                    unit.position + direction * taran::Q.visual_range,
-                    2,
-                    0.38,
-                );
-                for target in 0..UNIT_COUNT {
-                    let other = self.units[target];
-                    let delta = other.position - unit.position;
-                    let facing = delta.x * direction.x + delta.y * direction.y;
-                    if other.alive()
-                        && other.side != unit.side
-                        && !other.kind.structure()
-                        && delta.length() <= taran::Q.reach + other.kind.radius()
-                        && facing >= delta.length() * taran::Q.facing_threshold
-                    {
-                        let damage = taran::Q.base_damage + taran::STATS.ad * taran::Q.ad_ratio;
-                        self.hurt(source, target, Damage::Physical(damage));
-                    }
-                }
-            }
-            0 if unit.q <= 0. => {
-                self.units[source].q = nera::Q.cooldown;
-                self.shots.push(Shot {
-                    side: unit.side,
-                    position: unit.position + direction * nera::Q.spawn_offset,
-                    velocity: direction * nera::Q.speed,
-                    source,
-                    damage: Damage::Magic(nera::Q.base_damage + nera::STATS.ap * nera::Q.ap_ratio),
-                    remaining: nera::Q.lifetime,
-                    skill: None,
-                    pierced: 0,
-                });
-            }
-            1 if unit.e <= 0. => {
-                let dash = if unit.kind == Kind::Taran {
-                    &taran::E
-                } else {
-                    &nera::E
-                };
-                let endpoint = (unit.position + direction * dash.distance.min(aim.length())).lane();
-                self.units[source].e = dash.cooldown;
-                self.units[source].shield = dash.shield;
-                self.units[source].position = endpoint;
-                self.mark(unit.position, endpoint, 3, 0.34);
-                if source == PLAYER {
-                    self.target = None;
-                    self.destination = endpoint;
-                }
-            }
+        match self.units[source].kind {
+            Kind::Taran => taran_kit::cast(self, source, slot, point),
+            Kind::Nera => nera_kit::cast(self, source, slot, point),
             _ => {}
         }
     }

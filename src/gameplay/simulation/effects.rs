@@ -186,6 +186,7 @@ pub(crate) enum Shape {
     Phoenix,
 }
 
+#[derive(Clone)]
 pub(crate) struct Effect {
     pub from: Point,
     pub to: Point,

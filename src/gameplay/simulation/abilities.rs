@@ -302,6 +302,12 @@ impl Game {
         }
     }
 
+    fn cast_direction(&self, source: usize, point: Point) -> Point {
+        let unit = self.units[source];
+        let delta = point - unit.position;
+        if delta.length() < 1. { Point::at(unit.side.advance(), 0.) } else { delta.direction() }
+    }
+
     fn aim_within(&self, source: usize, point: Point, range: f32) -> Point {
         let origin = self.units[source].position;
         let delta = point - origin;

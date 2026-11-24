@@ -56,3 +56,11 @@ Okna korzystają z bitmap osadzonych w programie. Windows odczytuje ikonę oraz 
 rc /nologo /fo assets\fenrae.res assets\fenrae.rc
 cargo build --release --locked
 ```
+
+## Serwer meczu i kod umiejętności
+
+Każdy pojedynek uruchamia lokalny serwer w osobnym wątku gry. Serwer aktualizuje symulację 60 razy na sekundę, steruje botem i publikuje stan dla renderera. Po zakończeniu sesji połączenie jest zamykane.
+
+Dane bohatera są w `src/characters/<postać>.rs`, a wykonanie jego aktywnych umiejętności w `src/characters/<postać>/abilities.rs`. Wspólne reguły trafień, stref, efektów okresowych i pasywnych należą do symulacji.
+
+Kliknięcie ikony lub pojedyncze naciśnięcie skrótu wysyła do serwera przez TCP numer umiejętności i współrzędne celu. Połączenie jest lokalne (127.0.0.1). Serwer wybiera kod według postaci gracza i sprawdza stan meczu, życie, ogłuszenie, odnowienie oraz warunki konkretnej umiejętności. Klient rysuje otrzymany stan. Ruch, zatrzymanie i rozkaz ataku korzystają z tego samego połączenia.
