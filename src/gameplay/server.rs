@@ -171,9 +171,9 @@ mod tests {
 
     #[test]
     fn server_handles_click_once_and_checks_its_own_cooldown() {
-        let mut server = MatchServer::start(Hero::Nera).unwrap();
+        let mut server = MatchServer::start(Hero::Deafult).unwrap();
         let origin = server.snapshot().units[PLAYER].position;
-        let cast = Order::Cast(1, origin + Point::at(200., 0.));
+        let cast = Order::Cast(1, origin + Point::at(-200., 0.));
         assert_eq!(server.snapshot().units[PLAYER].cooldown(1), 0.);
         server.send(cast);
         server.send(cast);
@@ -184,7 +184,7 @@ mod tests {
                 assert!(
                     (game.units[PLAYER].position.x
                         - origin.x
-                        - crate::characters::nera::E.distance)
+                        - 101.)
                         .abs()
                         < 0.1
                 );

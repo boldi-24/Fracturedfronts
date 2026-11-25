@@ -87,6 +87,20 @@ impl TerrainPatch {
             depth: vec![f32::NEG_INFINITY; stride * rows], ..Mesh::default()
         };
         super::landscape::terrain(&mut terrain, camera);
+        // Anchor the fine surface grain to the projected world instead of the screen.
+        let (ox, oy, _) = camera.project(Vec3::new(0.,0.,0.));
+        let dx = ((camera.area.left as f32-ox)*ratio).round() as i32;
+        let dy = ((camera.area.top as f32-oy)*ratio).round() as i32;
+        for (y,row) in terrain.pixels.chunks_exact_mut(stride).enumerate() {
+            let line = ((y as i32 + dy) as u32).wrapping_mul(0x85ebca6b);
+            for (x,color) in row.iter_mut().enumerate() {
+                let key = ((x as i32 + dx) as u32).wrapping_mul(0x9e3779b1) ^ line;
+                let grit = (key ^ (key >> 17)).wrapping_mul(0x27d4eb2d) >> 28;
+                let delta = grit as i32 - 8;
+                let c = |shift:u32| ((((*color >> shift) & 255) as i32 + delta).clamp(0,255) as u32) << shift;
+                *color = c(0)|c(8)|c(16);
+            }
+        }
         Self { camera, view_size: (w, h), ratio, stride, pixels: terrain.pixels, depth: terrain.depth }
     }
 

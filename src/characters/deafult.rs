@@ -1,20 +1,16 @@
 use super::Stats;
 use super::roster::Profile;
 
-pub(crate) const ARXEN: Profile = Profile {
-    name: "Arxen",
-    role: "Łucznik · carry",
+pub(crate) const PROFILE: Profile = Profile {
+    name: "Deafult",
+    role: "deafult · terrorist",
     solar: false,
     stats: Stats {
         health: 174.,
-        ad: 30.,
-        ap: 2.,
+        ad: 100.,
         armor: 14.,
-        magic_resist: 15.,
-        attack_speed: 1.31,
         speed: 148.,
-        reach: 157.,
-        omnivamp: 0.045,
+        reach: 43.,
     },
     passive: (
         "Precyzja Fenrae",
@@ -26,7 +22,7 @@ pub(crate) const ARXEN: Profile = Profile {
         "Cień Przewietrzenia",
         "Deszcz Zaćmienia",
     ],
-    cooldowns: [6., 12., 14., 90.],
+    cooldowns: [1., 12., 14., 90.],
     descriptions: [
         "Trzy strzały w wachlarzu.",
         "Oznacza i ujawnia bohatera.",

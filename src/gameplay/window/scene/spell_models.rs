@@ -1,5 +1,5 @@
 use super::{Mesh, Vec3};
-use crate::characters::roster::Hero;
+
 use crate::gameplay::geometry::Point;
 use crate::gameplay::simulation::{Effect, Shape, Tone, Unit};
 use crate::ui::theme::rgb;
@@ -61,66 +61,7 @@ fn feather(mesh: &mut Mesh, a: Point, b: Point, za: f32, zb: f32, width: f32, co
         WHITE,
     );
 }
-
-enum Glyph {
-    Cleave,
-    Twins,
-    Volley,
-    Spark,
-    Guard,
-    Sight,
-    Veil,
-    Tether,
-    Spring,
-    Bloom,
-    Halo,
-    Rain,
-    Wings,
-    Fissure,
-    Pillar,
-    VolleyField,
-    Crescent,
-    Ward,
-    Flurry,
-}
-use Glyph::*;
-
-fn glyph(hero: Hero, slot: u32) -> Glyph {
-    match (hero, slot) {
-        (Hero::Taran | Hero::Aelor | Hero::Helvara | Hero::Veyrion, 0) => Cleave,
-        (Hero::Solviana | Hero::Zyraen, 0) => Crescent,
-        (Hero::Kaelith, 0) => Twins,
-        (Hero::Nera | Hero::Elorim, 0) => Spark,
-        (Hero::Arxen | Hero::Aurelia, 0) => Volley,
-        (Hero::Nyxalune, 0) => Crescent,
-        (Hero::Luness | Hero::Selune, 0) => Bloom,
-        (Hero::Arxen, 2) => Sight,
-        (Hero::Kaelith | Hero::Zyraen, 2) => Veil,
-        (Hero::Aurelia, 2) => Wings,
-        (Hero::Elorim, 2) => Halo,
-        (_, 2) => Guard,
-        (Hero::Aelor | Hero::Nyxalune, 1) => Wings,
-        (Hero::Veyrion | Hero::Helvara, 1) => Tether,
-        (Hero::Aurelia, 1) => Ward,
-        (Hero::Luness | Hero::Selune, 1) => Bloom,
-        (_, 1) => Spring,
-        (Hero::Elorim, 3) => Pillar,
-        (Hero::Arxen, 3) => VolleyField,
-        (Hero::Aurelia, 3) => Volley,
-        (Hero::Nyxalune, 3) => Rain,
-        (Hero::Veyrion, 3) => Guard,
-        (Hero::Kaelith, 3) => Flurry,
-        (Hero::Zyraen, 3) => Crescent,
-        (Hero::Aelor, 3) => Wings,
-        (Hero::Selune, 3) => Bloom,
-        (Hero::Luness, 3) => Spring,
-        (Hero::Helvara, 3) => Halo,
-        (Hero::Solviana, 3) => Fissure,
-        _ => Wings,
-    }
-}
-
-pub(super) fn cast_release(mesh: &mut Mesh, unit: &Unit, hero: Hero, color: u32, remaining: f32) {
+pub(super) fn cast_release(mesh: &mut Mesh, unit: &Unit, color: u32, remaining: f32) {
     let t = 1. - remaining;
     let base = unit.position;
     let aim = unit.cast_point - base;
@@ -136,37 +77,9 @@ pub(super) fn cast_release(mesh: &mut Mesh, unit: &Unit, hero: Hero, color: u32,
     let m = (t * PI).sin().max(0.08);
     let size = if slot == 3 { 1.5 } else { 1. };
     // This flash starts on release. Projectile, hit and zone geometry follows simulation events.
-    match glyph(hero, slot as u32) {
-        Cleave | Crescent | Twins | Flurry => {
-            let repeats = match glyph(hero, slot as u32) {
-                Twins => 2,
-                Flurry => 4,
-                _ => 1,
-            };
-            for i in 0..repeats {
-                let k = i as f32;
-                let start = heading - 1.45 + k * 0.62 + t * 1.9;
-                band(
-                    mesh,
-                    base,
-                    (25. + t * 18. + k * 3.) * size,
-                    6. * m + 1.,
-                    9. + k * 4.,
-                    16.,
-                    start,
-                    1.5,
-                    color,
-                );
-            }
-        }
-        Volley | VolleyField | Spark => {
-            let count = if matches!(hero, Hero::Arxen) {
-                3
-            } else if hero == Hero::Aurelia {
-                2
-            } else {
-                1
-            };
+    match slot {
+        0 | 3 => {
+            let count = 3;
             for i in 0..count {
                 let spread = (i as f32 - (count - 1) as f32 * 0.5) * 6.8;
                 let p = at(12. + t * 31., spread * (0.3 + t));
@@ -184,35 +97,7 @@ pub(super) fn cast_release(mesh: &mut Mesh, unit: &Unit, hero: Hero, color: u32,
                 band(mesh, base, 32. + t * 8., 2., 3., 0., heading, TAU, color);
             }
         }
-        Guard | Halo | Ward => {
-            let n = if slot == 3 { 8 } else { 5 };
-            for i in 0..n {
-                let a = heading + i as f32 * TAU / n as f32 + t * 0.4;
-                let r = 20. + 5. * m;
-                let z = 3. + 7. * t;
-                mesh.face(
-                    &[
-                        pos(base, a - 0.16, r, z + 9.),
-                        pos(base, a, r + 1., z),
-                        pos(base, a + 0.16, r, z + 9.),
-                        pos(base, a, r, z + 21. * m),
-                    ],
-                    color,
-                );
-            }
-            band(
-                mesh,
-                base,
-                (28. + t * 12.) * size,
-                2. + m,
-                2.,
-                0.,
-                heading,
-                TAU,
-                color,
-            );
-        }
-        Sight | Tether => {
+        2 => {
             for i in 0..6 {
                 let f = i as f32;
                 let p = at(13. + f * 5. + t * 14., (f * PI * 0.65).sin() * m * 2.);
@@ -237,7 +122,7 @@ pub(super) fn cast_release(mesh: &mut Mesh, unit: &Unit, hero: Hero, color: u32,
                 );
             }
         }
-        Veil | Spring => {
+        1 => {
             for i in 0..5 {
                 let k = i as f32 - 2.;
                 let tail = at(-8. - t * 29. - k.abs() * 3., k * 3.);
@@ -252,41 +137,9 @@ pub(super) fn cast_release(mesh: &mut Mesh, unit: &Unit, hero: Hero, color: u32,
                 );
             }
         }
-        Bloom | Rain => {
-            let petals = if slot == 3 { 8 } else { 4 };
-            for i in 0..petals {
-                let a = TAU * i as f32 / petals as f32 + t * 1.2;
-                let dir = Point::at(a.cos(), a.sin());
-                feather(
-                    mesh,
-                    base + dir * 5.,
-                    base + dir * (16. + 10. * t) * size,
-                    17.,
-                    23. + 15. * m,
-                    3.3 * m + 1.,
-                    color,
-                );
-            }
-        }
-        Wings => {
-            phoenix(mesh, base, heading, 24. * size, t, color);
-        }
-        Pillar | Fissure => {
-            let r = (15. + t * 17.) * size;
-            band(mesh, base, r, 3. * m + 1., 2., 0., heading, TAU, color);
-            for i in 0..7 {
-                let a = TAU * i as f32 / 7.;
-                mesh.gem(
-                    pos(base, a, r, 9. + m * 14.),
-                    3. * m + 1.,
-                    6. + 20. * m,
-                    color,
-                );
-            }
-        }
+        _ => {}
     }
 }
-
 fn phoenix(mesh: &mut Mesh, center: Point, heading: f32, r: f32, t: f32, color: u32) {
     let forward = Point::at(heading.cos(), heading.sin());
     let side = Point::at(-forward.y, forward.x);
@@ -309,14 +162,14 @@ fn phoenix(mesh: &mut Mesh, center: Point, heading: f32, r: f32, t: f32, color: 
     }
 }
 
-pub(in crate::gameplay::window::scene) fn effect(mesh: &mut Mesh, fx: &Effect, elapsed: f32) {
+pub(in crate::gameplay::window::scene) fn effect(mesh: &mut Mesh, fx: &Effect, _elapsed: f32) {
     let remaining = (fx.t / fx.duration.max(0.001)).clamp(0., 1.);
     let t = 1. - remaining;
     let m = (t * PI).sin().max(0.07);
     let color = match fx.tone {
         Tone::Solar => rgb(255, 174, 51),
-        Tone::Eclipse => rgb(174, 98, 254),
-        Tone::Heal => rgb(115, 246, 200),
+        Tone::Eclipse => rgb(125, 170, 194),
+
     };
     let base = fx.to;
     let path = fx.to - fx.from;
@@ -325,30 +178,6 @@ pub(in crate::gameplay::window::scene) fn effect(mesh: &mut Mesh, fx: &Effect, e
     let side = Point::at(-forward.y, forward.x);
     let r = fx.radius.max(5.);
     match fx.shape {
-        Shape::Arc => {
-            band(
-                mesh,
-                fx.from,
-                r * (0.72 + 0.28 * t),
-                r * 0.12 * m + 1.,
-                8.,
-                18.,
-                heading - 1.32 + t * 0.42,
-                2.25,
-                color,
-            );
-            band(
-                mesh,
-                fx.from,
-                r * (0.72 + 0.28 * t) + 1.,
-                1.6,
-                8.,
-                18.,
-                heading - 1.32 + t * 0.42,
-                2.25,
-                WHITE,
-            );
-        }
         Shape::Beam | Shape::Dash => {
             let head = fx.from + path * (0.22 + t * 0.78);
             let tail = head - path * (0.18 + remaining * 0.25);
@@ -375,20 +204,6 @@ pub(in crate::gameplay::window::scene) fn effect(mesh: &mut Mesh, fx: &Effect, e
                     );
                 }
             }
-        }
-        Shape::Shield => {
-            // An open dome leaves the shielded model visible.
-            for i in 0..4 {
-                let a = TAU * i as f32 / 4. + t * 1.3;
-                let rim = pos(base, a, r * 0.72, 4.);
-                let arch = pos(base, a, r * 0.65, 23.);
-                let peak = pos(base, a, r * 0.20, 39. + m * 4.);
-                mesh.face(
-                    &[rim, arch, peak, pos(base, a + 0.09, r * 0.64, 22.)],
-                    color,
-                );
-            }
-            band(mesh, base, r * 0.74, 2., 3., 0., elapsed, TAU, color);
         }
         Shape::Mark => {
             let z = 39. + t * 6.;
@@ -422,20 +237,6 @@ pub(in crate::gameplay::window::scene) fn effect(mesh: &mut Mesh, fx: &Effect, e
                     z + 13.,
                     z,
                     1.9,
-                    color,
-                );
-            }
-        }
-        Shape::Trap => {
-            band(mesh, base, r, 2.1, 2., 0., 0., TAU, color);
-            for i in 0..4 {
-                let a = TAU * i as f32 / 4. + elapsed * 0.55;
-                mesh.face(
-                    &[
-                        pos(base, a - 0.20, r * 0.72, 2.),
-                        pos(base, a, r * 0.92, 4. + 4. * m),
-                        pos(base, a + 0.20, r * 0.72, 2.),
-                    ],
                     color,
                 );
             }

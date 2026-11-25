@@ -17,7 +17,6 @@ pub(crate) const KEY_ART: &[u8] = include_bytes!("../../assets/key-art.bmp");
 pub(crate) const CITADEL: &[u8] = include_bytes!("../../assets/citadel.bmp");
 pub(crate) const BRIDGE: &[u8] = include_bytes!("../../assets/eclipse-bridge.bmp");
 const ROSTER: &[u8] = include_bytes!("../../assets/roster.bmp");
-pub(crate) const CHAMPIONS: &[u8] = include_bytes!("../../assets/champions.bmp");
 
 pub(crate) fn icon(instance: HINSTANCE) -> HICON {
     // This ID matches the RT_GROUP_ICON in assets/fenrae.rc.
@@ -86,15 +85,10 @@ pub(crate) fn contain(bitmap: &[u8], target: RECT) -> RECT {
 pub(crate) fn hero_portrait(
     dc: HDC,
     target: RECT,
-    hero: crate::characters::roster::Hero,
+    _hero: crate::characters::roster::Hero,
     face: bool,
 ) {
-    use crate::characters::roster::Hero;
-    let Some(index) = hero.portrait_index() else {
-        old_portrait(dc, target, hero == Hero::Nera, face);
-        return;
-    };
-    roster_portrait(dc, target, index as i32, face);
+    roster_portrait(dc, target, 0, face);
 }
 
 fn roster_portrait(dc: HDC, target: RECT, index: i32, face: bool) {
@@ -108,27 +102,6 @@ fn roster_portrait(dc: HDC, target: RECT, index: i32, face: bool) {
         box_at(176 * index + (176 - w) / 2, (220 - h) / 4, w, h)
     };
     paint_portrait(dc, ROSTER, target, source, face);
-}
-
-fn old_portrait(dc: HDC, target: RECT, ranged: bool, face: bool) {
-    let (width, height) = dimensions(CHAMPIONS);
-    let half_width = width / 2;
-    let left = if ranged { half_width } else { 0 };
-    let source = if face {
-        box_at(
-            left + half_width / 4,
-            height / 7,
-            half_width / 2,
-            height / 2,
-        )
-    } else {
-        let target_w = (target.right - target.left).max(1);
-        let target_h = (target.bottom - target.top).max(1);
-        let h = (half_width * target_h / target_w).clamp(1, height);
-        let w = (height * target_w / target_h).clamp(1, half_width);
-        box_at(left + (half_width - w) / 2, (height - h) / 3, w, h)
-    };
-    paint_portrait(dc, CHAMPIONS, target, source, face);
 }
 
 fn paint_portrait(dc: HDC, bitmap: &[u8], target: RECT, source: RECT, face: bool) {

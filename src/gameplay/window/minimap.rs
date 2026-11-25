@@ -7,8 +7,8 @@ use crate::ui::{art, controls::fill, theme::rgb};
 use windows_sys::Win32::{Foundation::{POINT, RECT}, Graphics::Gdi::HDC};
 
 fn bounds(area: RECT) -> RECT {
-    let width = (area.right / 4).clamp(140, 300);
-    let height = width / 3;
+    let width = (area.right / 5).clamp(130, 224);
+    let height = width;
     rect(area.right - width - 12, area.bottom - height - 12, width, height)
 }
 
@@ -36,25 +36,20 @@ pub(super) fn world_at(area: RECT, mouse: POINT) -> Option<Point> {
 
 pub(super) fn draw(dc: HDC, area: RECT, game: &Game) {
     let m = bounds(area);
-    art::frame(dc, m, rgb(142, 133, 158), rgb(20, 23, 35));
+    art::frame(dc, m, rgb(150,144,119), rgb(34,38,34));
     let a = project(m, Point::at(0., LANE_MIN_Y));
     let b = project(m, Point::at(WORLD_WIDTH, LANE_MAX_Y));
-    art::frame(dc, rect(a.x, a.y, b.x-a.x+1, b.y-a.y+1), rgb(76, 71, 88), rgb(45, 43, 58));
+    art::frame(dc, rect(a.x, a.y, b.x-a.x+1, b.y-a.y+1), rgb(109,108,88), rgb(66,69,55));
 
-    // Draw champions last so a minion wave cannot cover them.
-    for layer in 0..3 {
+    // Draw actors above the objectives.
+    for layer in 0..2 {
         for (i, unit) in game.units.iter().enumerate() {
             if !unit.alive() || (unit.side == Side::Red && unit.status.concealed()) { continue; }
-            let order = match unit.kind { Kind::Minion => 0, Kind::Tower | Kind::Nexus => 1, _ => 2 };
+            let order = usize::from(!unit.kind.structure());
             if order != layer { continue; }
             let POINT { x, y } = project(m, unit.position);
             let color = super::scene::team(unit.side);
             match unit.kind {
-                Kind::Minion => fill(dc, &rect(x-1, y-1, 3, 3), color),
-                Kind::Tower => {
-                    fill(dc, &rect(x-3, y-3, 7, 7), color);
-                    fill(dc, &rect(x-1, y-1, 3, 3), rgb(34, 30, 44));
-                }
                 Kind::Nexus => {
                     fill(dc, &rect(x-4, y-2, 9, 5), color);
                     fill(dc, &rect(x-2, y-4, 5, 9), color);
@@ -79,10 +74,10 @@ mod tests {
         for width in [645, 1160, 1920] {
             let area = rect(0, 0, width, 780);
             let m = bounds(area);
-            for (_, _, _, icon) in super::super::hud_slots(area, crate::characters::roster::Hero::Aelor) {
+            for (_, _, _, icon) in super::super::hud_slots(area, crate::characters::roster::Hero::Deafult) {
                 assert!(icon.right < m.left);
             }
-            for p in [Point::at(0., 0.), Point::at(1700., 210.), Point::at(WORLD_WIDTH, WORLD_HEIGHT)] {
+            for p in [Point::at(0., 0.), Point::at(WORLD_WIDTH * 0.6, WORLD_HEIGHT * 0.3), Point::at(WORLD_WIDTH, WORLD_HEIGHT)] {
                 let actual = world_at(area, project(m, p)).unwrap();
                 assert!((actual.x-p.x).abs() <= WORLD_WIDTH / (m.right-m.left-2*INSET) as f32);
                 assert!((actual.y-p.y).abs() <= WORLD_HEIGHT / (m.bottom-m.top-2*INSET) as f32);

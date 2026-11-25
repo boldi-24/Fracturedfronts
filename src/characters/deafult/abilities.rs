@@ -14,7 +14,7 @@ pub(super) fn cast(game: &mut Game, source: usize, slot: u32, point: Point) -> b
 fn q(game: &mut Game, source: usize, point: Point) -> bool {
     let origin = game.units[source].position;
     let direction = game.cast_direction(source, point);
-    let damage = game.physical(source, 5., 0.62);
+    let damage = game.physical(source, 20., 1.);
     game.projectile_group = game.projectile_group.wrapping_add(1).max(1);
     let hit = SkillHit {
         group: game.projectile_group,
@@ -27,7 +27,7 @@ fn q(game: &mut Game, source: usize, point: Point) -> bool {
             direction.x * cos - direction.y * sin,
             direction.x * sin + direction.y * cos,
         );
-        game.launch(source, aim, damage, hit, 565., 0.63);
+        game.launch(source, aim, damage, hit, 600., 2.);
         game.fx(source, Shape::Beam, origin, origin + aim * 78., 5., 0.32);
     }
     true

@@ -10,7 +10,7 @@ use crate::{
     },
     ui::{controls::fill, theme::rgb},
 };
-use landscape::{minion, nexus, ring, tower};
+use landscape::{nexus, ring};
 use raster::{Mesh, Vec3, shade};
 use windows_sys::Win32::{Foundation::RECT, Graphics::Gdi::HDC};
 
@@ -84,7 +84,7 @@ impl Camera {
             .filter(|(_, u)| {
                 u.alive()
                     && (u.side == Side::Red
-                        || (include_allies && !matches!(u.kind, Kind::Tower | Kind::Nexus)))
+                        || (include_allies && !matches!(u.kind, Kind::Nexus)))
                     && !(u.side == Side::Red && u.status.concealed())
             })
             .filter_map(|(i, u)| {
@@ -115,9 +115,7 @@ impl Camera {
 }
 fn model_bounds(kind: Kind) -> (f32, f32) {
     match kind {
-        Kind::Tower => (89., 32.),
-        Kind::Nexus => (94., 39.),
-        Kind::Minion => (25., 10.),
+        Kind::Nexus => (72., 39.),
         _ => (49., 16.),
     }
 }
@@ -125,7 +123,7 @@ pub(super) fn team(side: Side) -> u32 {
     if side == Side::Blue {
         rgb(104, 216, 252)
     } else {
-        rgb(253, 118, 155)
+        rgb(237, 159, 72)
     }
 }
 pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
@@ -145,9 +143,6 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
                 continue;
             }
             if !u.alive() {
-                if u.kind == Kind::Tower {
-                    landscape::ruins(m, u.position)
-                }
                 continue;
             }
             let accent = team(u.side);
@@ -156,9 +151,6 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
             if game.target == Some(i) || u.kind.hero().is_some() {
                 ring(m, u.position, r + 3., 1., 1.6, accent)
             }
-            if u.shield > 0. || u.status.protected() {
-                ring(m, u.position, r + 6., 3., 2.3, rgb(243, 206, 153))
-            }
             if u.status.marked() {
                 ring(m, u.position, r + 3., 6., 1., rgb(250, 168, 104))
             }
@@ -166,51 +158,14 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
                 ring(m, u.position, r, 9., 2., rgb(143, 225, 250))
             }
             match u.kind {
-                Kind::Tower => {
-                    let aim = game.tower_aim(i);
-                    let direction = aim.map_or(u.facing, |(target, _)| (game.units[target].position - u.position).direction());
-                    tower(m, u.position, accent, direction);
-                    if let Some((target, charge)) = aim {
-                        let muzzle = Vec3::at(u.position + direction * 33., 87.);
-                        m.segment(muzzle, Vec3::at(game.units[target].position, 13.),
-                                  0.65 + charge * 0.6, shade(accent, 0.65 + charge * 0.35));
-                    }
-                },
                 Kind::Nexus => nexus(m, u.position, accent, game.elapsed),
-                Kind::Minion => minion(m, u, game.elapsed),
                 _ => models::hero(m, u, game.elapsed),
             }
         }
-        for bolt in &game.bolts {
-            let t = bolt.progress.clamp(0., 1.);
-            let (start_height, arc, r) = if bolt.from_tower {
-                (87., 22., 4.2)
-            } else {
-                (19., 10., 2.6)
-            };
-            let height = start_height * (1. - t) + 13. * t + 4. * arc * t * (1. - t);
-            let origin_offset = if bolt.from_tower { 33. * (1. - t) } else { 0. };
-            let heading = (bolt.position - bolt.from).direction();
-            let head = bolt.position + heading * origin_offset;
-            let tip = Vec3::at(head, height);
-            let delta = (bolt.position - bolt.from).direction();
-            let tail = Vec3::at(
-                head - delta * if bolt.from_tower { 19. } else { 11. },
-                height + 2.,
-            );
-            m.segment(tail, tip, r * 0.55, team(bolt.side));
-            if !bolt.from_tower {
-                let wing = Point::at(-delta.y, delta.x) * 2.8;
-                let back = head - delta * 12.;
-                m.face(&[Vec3::at(back + wing, height + 2.), Vec3::at(back - wing, height + 2.), tip], team(bolt.side));
-            }
-            m.gem(tip, r * 1.4, r * 3., rgb(253, 237, 219));
-        }
         for shot in &game.shots {
             let c = match shot.spell_tone(game) {
-                Some(Tone::Eclipse) => rgb(200, 130, 255),
+                Some(Tone::Eclipse) => rgb(148, 190, 209),
                 Some(Tone::Solar) => rgb(254, 197, 88),
-                Some(Tone::Heal) => rgb(127, 248, 197),
                 None => team(shot.side),
             };
             let direction = shot.velocity.direction();
@@ -226,7 +181,7 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
                 match mark.kind {
                     0 => team(Side::Blue),
                     1 => team(Side::Red),
-                    _ => rgb(234, 203, 255),
+                    _ => rgb(233, 221, 186),
                 },
             );
         }

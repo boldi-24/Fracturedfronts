@@ -4,7 +4,7 @@ use crate::{
     ui::{
         art,
         controls::fill,
-        theme::{ACCENT, BACKGROUND, BORDER, HEADER, MUTED, TEXT, rgb},
+        theme::{ACCENT, BACKGROUND, BORDER, HEADER, TEXT, rgb},
     },
 };
 use std::ptr::null_mut;
@@ -23,6 +23,9 @@ fn label(dc: HDC, font: HFONT, value: &str, mut area: RECT, color: COLORREF, fla
 }
 
 fn text(dc: HDC, font: HFONT, words: &[u16], area: &mut RECT, color: COLORREF, flags: u32) {
+    if words.is_empty() {
+        return;
+    }
     unsafe {
         let previous_font = if font.is_null() {
             null_mut()
@@ -89,10 +92,6 @@ pub(super) fn paint_button(state: &MatchWindow, item: &DRAWITEMSTRUCT) {
 }
 
 fn draw_selection(dc: HDC, state: &MatchWindow, area: RECT) {
-    for (row, (name, _)) in super::ROLE_ROWS.iter().enumerate() {
-        label(dc, state.normal, name, rect(22, 98 + row as i32 * 72, 145, 60),
-              MUTED, DT_SINGLELINE | DT_VCENTER);
-    }
     let width = area.right;
     fill(dc, &rect(0, 0, width, 88), HEADER);
     fill(dc, &rect(0, 87, width, 1), BORDER);

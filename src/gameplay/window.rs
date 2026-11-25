@@ -81,7 +81,7 @@ impl MatchWindow {
     pub(crate) fn new() -> Self {
         Self {
             handle: Cell::new(null_mut()),
-            hero: Cell::new(Hero::Taran),
+            hero: Cell::new(Hero::Deafult),
             camera: Cell::new(Point::default()),
             aim: Cell::new(Point::at(550., 280.)),
             round: RefCell::new(None),
@@ -115,7 +115,10 @@ impl MatchWindow {
             return;
         }
         let bounds = [origin.x, origin.y, origin.x + area.right, origin.y + area.bottom];
-        if self.cursor_bounds.get() != Some(bounds) {
+        let mut current = RECT::default();
+        let matches = unsafe { GetClipCursor(&mut current) } != 0
+            && [current.left, current.top, current.right, current.bottom] == bounds;
+        if self.cursor_bounds.get() != Some(bounds) || !matches {
             let clip = RECT { left: bounds[0], top: bounds[1], right: bounds[2], bottom: bounds[3] };
             if unsafe { ClipCursor(&clip) } != 0 { self.cursor_bounds.set(Some(bounds)); }
         }
@@ -128,7 +131,7 @@ impl MatchWindow {
             return Ok(());
         }
         self.round.replace(None);
-        self.hero.set(Hero::Taran);
+        self.hero.set(Hero::Deafult);
         let instance = unsafe { GetModuleHandleW(null()) };
         let area = viewport(owner);
         let window = unsafe {
@@ -230,17 +233,8 @@ fn viewport(window: HWND) -> RECT {
     area
 }
 
-const ROLE_ROWS: &[(&str, &[Hero])] = &[
-    ("Wojownicy", &[Hero::Aelor, Hero::Solviana, Hero::Taran]),
-    ("Strzelcy", &[Hero::Arxen, Hero::Aurelia, Hero::Nera]),
-    ("Obrońcy", &[Hero::Helvara, Hero::Veyrion]),
-    ("Magowie", &[Hero::Elorim, Hero::Nyxalune]),
-    ("Wsparcie", &[Hero::Luness, Hero::Selune]),
-    ("Zabójcy", &[Hero::Kaelith, Hero::Zyraen]),
-];
-
-fn icon_rect(row: usize, column: usize) -> RECT {
-    rect(178 + column as i32 * 70, 98 + row as i32 * 72, 60, 60)
+fn icon_rect(column: usize) -> RECT {
+    rect(22 + column as i32 * 70, 98, 60, 60)
 }
 
 fn control_layout(window: HWND, state: &MatchWindow) {
@@ -251,15 +245,13 @@ fn control_layout(window: HWND, state: &MatchWindow) {
     let outcome = round.as_ref().map_or(0, |round| round.game.result);
     drop(round);
 
-    for (row, (_, heroes)) in ROLE_ROWS.iter().enumerate() {
-        for (column, &hero) in heroes.iter().enumerate() {
-            let id = FIRST_HERO + hero as u16;
-            let icon = icon_rect(row, column);
-            place(window, id, icon.left, icon.top, icon.right - icon.left, icon.bottom - icon.top);
-            let handle = child(window, id);
-            if !handle.is_null() {
-                unsafe { ShowWindow(handle, if active { SW_HIDE } else { SW_SHOWNA }) };
-            }
+    for (column, hero) in Hero::ALL.into_iter().enumerate() {
+        let id = FIRST_HERO + hero as u16;
+        let icon = icon_rect(column);
+        place(window, id, icon.left, icon.top, icon.right - icon.left, icon.bottom - icon.top);
+        let handle = child(window, id);
+        if !handle.is_null() {
+            unsafe { ShowWindow(handle, if active { SW_HIDE } else { SW_SHOWNA }) };
         }
     }
     let arena = board(area);
@@ -351,19 +343,18 @@ fn world_under_cursor(
 }
 
 fn edge_speed(pixel: i32, start: i32, end: i32) -> f32 {
-    const BAND: i32 = 24;
+    const BAND: i32 = 100;
     if pixel < start + BAND { -1. } else if pixel >= end - BAND { 1. } else { 0. }
 
 }
 
-// One layout for both painting and pointer input. Legacy heroes only have Q and E.
-fn hud_slots(area: RECT, hero: Hero) -> impl Iterator<Item = (u16, u32, usize, RECT)> {
-    let full = hero.profile().is_some();
-    let count = if full { 4 } else { 2 };
+// One layout for both painting and pointer input.
+fn hud_slots(area: RECT, _hero: Hero) -> impl Iterator<Item = (u16, u32, usize, RECT)> {
+    let count = 4;
     let size = (area.bottom / 13).clamp(38, 64);
     let gap = 6;
     let left = (area.right - count * size - (count - 1) * gap) / 2;
-    ABILITIES.into_iter().enumerate().filter(move |(_, (_, slot, _))| full || *slot < 2)
+    ABILITIES.into_iter().enumerate()
         .enumerate().map(move |(i, (column, (id, slot, _)))|
             (id, slot, column, rect(left + i as i32 * (size + gap), area.bottom - size - 12, size, size)))
 }
@@ -371,6 +362,24 @@ fn hud_slots(area: RECT, hero: Hero) -> impl Iterator<Item = (u16, u32, usize, R
 fn hud_hit(area: RECT, hero: Hero, mouse: POINT) -> Option<u16> {
     hud_slots(area, hero).find(|(_, _, _, r)| mouse.x >= r.left && mouse.x < r.right &&
         mouse.y >= r.top && mouse.y < r.bottom).map(|s| s.0)
+}
+
+fn reachable_edges(client: RECT, clip: RECT) -> Option<RECT> {
+    let area = RECT {
+        left: client.left.max(clip.left), top: client.top.max(clip.top),
+        right: client.right.min(clip.right), bottom: client.bottom.min(clip.bottom),
+    };
+    (area.left < area.right && area.top < area.bottom).then_some(area)
+}
+
+fn cursor_area(window: HWND, client: RECT) -> Option<RECT> {
+    let mut clip = RECT::default();
+    if unsafe { GetClipCursor(&mut clip) } == 0 { return Some(client); }
+    let mut start = POINT { x: clip.left, y: clip.top };
+    let mut end = POINT { x: clip.right, y: clip.bottom };
+    if unsafe { ScreenToClient(window, &mut start) } == 0
+        || unsafe { ScreenToClient(window, &mut end) } == 0 { return None; }
+    reachable_edges(client, RECT { left: start.x, top: start.y, right: end.x, bottom: end.y })
 }
 
 fn update_camera(window: HWND, state: &MatchWindow, game: &Game, dt: f32) {
@@ -383,18 +392,17 @@ fn update_camera(window: HWND, state: &MatchWindow, game: &Game, dt: f32) {
         return;
     }
     let client = viewport(window);
-    if mouse.x < 0 || mouse.y < 0 || mouse.x >= client.right || mouse.y >= client.bottom {
-        return;
-    }
-
     let arena = board(client);
+    if arena.right <= 0 || arena.bottom <= 0 { return; }
     if !state.follow.get() {
-        let delta = Point::at(edge_speed(mouse.x, arena.left, arena.right), edge_speed(mouse.y, arena.top, arena.bottom));
+        let Some(edges) = cursor_area(window, arena) else { return };
+        let delta = Point::at(edge_speed(mouse.x, edges.left, edges.right), edge_speed(mouse.y, edges.top, edges.bottom));
         let camera = scene::Camera::at(arena, state.camera.get(), state.top_down.get());
         let motion = delta * (CAMERA_SPEED * dt / delta.length().max(1.));
         let center = state.camera.get() + camera.offset(motion.x, motion.y);
         state.camera.set(Point::at(center.x.clamp(0., WORLD_WIDTH), center.y.clamp(0., WORLD_HEIGHT)));
     }
+    if mouse.x < 0 || mouse.y < 0 || mouse.x >= client.right || mouse.y >= client.bottom { return; }
     if hud_hit(client, state.hero.get(), mouse).is_some() || minimap::world_at(client, mouse).is_some() { return; }
     if let Some(point) = world_under_cursor(state, arena, mouse, game, true) {
         state.aim.set(point);
@@ -446,7 +454,7 @@ fn timer(window: HWND, state: &MatchWindow) {
         let mut stored = state.round.borrow_mut();
         let Some(round) = stored.as_mut() else { return };
         let now = Instant::now();
-        let elapsed = (now - round.last_tick).as_secs_f32().min(0.1);
+        let elapsed = (now - round.last_tick).as_secs_f32().min(0.033);
         round.last_tick = now;
         round.game = round.server.snapshot();
         if state.follow.get() {
@@ -682,12 +690,16 @@ mod tests {
             state.open(host).unwrap();
             let view = state.handle.get();
             assert_eq!(GetAncestor(view, GA_ROOT), host);
+            assert!(state.round.borrow().is_none());
+            InvalidateRect(view, null(), 0);
+            SendMessageW(view, WM_PAINT, 0, 0);
+            assert!(IsWindow(view) != 0);
             for hero in Hero::ALL {
                 command(view, &state, FIRST_HERO + hero as u16);
                 command(view, &state, START);
                 let area = viewport(view);
                 let slots: Vec<_> = hud_slots(area, hero).collect();
-                assert_eq!(slots.len(), if hero.profile().is_some() { 4 } else { 2 });
+                assert_eq!(slots.len(), 4);
                 assert!((slots[0].3.left - (area.right - slots.last().unwrap().3.right)).abs() <= 1);
                 for id in [START, CHANGE, CLOSE] {
                     assert_eq!(GetWindowLongW(child(view, id), GWL_STYLE) as u32 & WS_VISIBLE, 0);
@@ -730,19 +742,28 @@ mod tests {
             let area = rect(0, 0, width, 640);
             let mut placed: Vec<RECT> = Vec::new();
             let mut seen = Vec::new();
-            for (row, (_, heroes)) in ROLE_ROWS.iter().enumerate() {
-                for (column, &hero) in heroes.iter().enumerate() {
-                    let icon = icon_rect(row, column);
-                    assert_eq!(button_hero(FIRST_HERO + hero as u16), Some(hero));
-                    assert!(icon.right <= area.right && icon.bottom <= area.bottom - 55);
-                    assert!(!seen.contains(&hero));
-                    assert!(placed.iter().all(|other| other.right <= icon.left || other.bottom <= icon.top));
-                    placed.push(icon);
-                    seen.push(hero);
-                }
+            for (column, hero) in Hero::ALL.into_iter().enumerate() {
+                let icon = icon_rect(column);
+                assert_eq!(button_hero(FIRST_HERO + hero as u16), Some(hero));
+                assert!(icon.right <= area.right && icon.bottom <= area.bottom - 55);
+                assert!(!seen.contains(&hero));
+                assert!(placed.iter().all(|other| other.right <= icon.left || other.bottom <= icon.top));
+                placed.push(icon);
+                seen.push(hero);
             }
             assert_eq!(seen.len(), Hero::ALL.len());
         }
+    }
+
+    #[test]
+    fn camera_uses_reachable_edges_when_window_extends_offscreen() {
+        let area = reachable_edges(rect(0, 0, 1200, 900), rect(150, 120, 850, 600)).unwrap();
+        assert_eq!(edge_speed(150, area.left, area.right), -1.);
+        assert_eq!(edge_speed(999, area.left, area.right), 1.);
+        assert_eq!(edge_speed(120, area.top, area.bottom), -1.);
+        assert_eq!(edge_speed(719, area.top, area.bottom), 1.);
+        assert_eq!(edge_speed(1000, area.left, area.right), 1.);
+        assert_eq!(edge_speed(550, area.left, area.right), 0.);
     }
 
     #[test]

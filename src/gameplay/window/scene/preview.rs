@@ -11,28 +11,15 @@ fn duel_renders_offscreen() {
         right: 1220,
         bottom: 650,
     };
-    let camera = Camera::at(area, Point::at(460., 286.), false);
-    let mut g = Game::with_hero(Hero::Veyrion);
-    let player = Point::at(488., 285.);
-    let enemy = Point::at(605., 274.);
+    let camera = Camera::at(area, Point::at(410., 100.), false);
+    let mut g = Game::with_hero(Hero::Deafult);
+    let player = Point::at(435., 120.);
+    let enemy = Point::at(528., 136.);
     g.units[0].position = player;
     g.units[1].position = enemy;
     g.destination = player;
-    let mut count = [0, 0];
-    for u in g
-        .units
-        .iter_mut()
-        .filter(|u| u.kind == Kind::Minion && u.alive())
-    {
-        let red = usize::from(u.side == Side::Red);
-        u.position = Point::at(
-            if red == 1 { 571. } else { 520. } + 12. * count[red] as f32,
-            238. + 47. * count[red] as f32,
-        );
-        count[red] += 1;
-    }
     g.cast(0, 3, enemy);
-    for _ in 0..11 {
+    for _ in 0..25 {
         g.step(1. / 60.)
     }
     assert!(!g.effects.is_empty());
