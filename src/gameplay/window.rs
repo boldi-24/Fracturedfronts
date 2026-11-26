@@ -36,8 +36,9 @@ use windows_sys::{
 };
 
 pub(crate) const MATCH_CLOSED: u32 = WM_APP + 5;
+pub(crate) const MATCH_FULLSCREEN: u32 = WM_APP + 6;
 const CLASS: *const u16 = w!("MobaMatchWindow");
-const TITLE: *const u16 = w!("Fenrae Eclipse — rozgrywka");
+const TITLE: *const u16 = w!("Fractured Front — rozgrywka");
 const FIRST_HERO: u16 = 300;
 const START: u16 = 202;
 const CHANGE: u16 = 203;
@@ -81,7 +82,7 @@ impl MatchWindow {
     pub(crate) fn new() -> Self {
         Self {
             handle: Cell::new(null_mut()),
-            hero: Cell::new(Hero::Deafult),
+            hero: Cell::new(Hero::One),
             camera: Cell::new(Point::default()),
             aim: Cell::new(Point::at(550., 280.)),
             round: RefCell::new(None),
@@ -131,7 +132,7 @@ impl MatchWindow {
             return Ok(());
         }
         self.round.replace(None);
-        self.hero.set(Hero::Deafult);
+        self.hero.set(Hero::One);
         let instance = unsafe { GetModuleHandleW(null()) };
         let area = viewport(owner);
         let window = unsafe {
@@ -440,6 +441,9 @@ fn start(window: HWND, state: &MatchWindow) {
             )
         };
     }
+    if state.round.borrow().is_some() {
+        unsafe { SendMessageW(GetParent(window), MATCH_FULLSCREEN, 1, 0); }
+    }
     sync_controls(state, window);
     unsafe { SetFocus(window) };
 }
@@ -491,6 +495,7 @@ fn command(window: HWND, state: &MatchWindow, id: u16) {
             state.release_cursor();
             unsafe { KillTimer(window, TIMER) };
             state.round.replace(None);
+            unsafe { SendMessageW(GetParent(window), MATCH_FULLSCREEN, 0, 0); }
             sync_controls(state, window);
             unsafe { SetFocus(child(window, FIRST_HERO + state.hero.get() as u16)) };
         }

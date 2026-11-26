@@ -15,11 +15,11 @@ use windows_sys::Win32::{
 
 pub(crate) const KEY_ART: &[u8] = include_bytes!("../../assets/key-art.bmp");
 pub(crate) const CITADEL: &[u8] = include_bytes!("../../assets/citadel.bmp");
-pub(crate) const BRIDGE: &[u8] = include_bytes!("../../assets/eclipse-bridge.bmp");
-const ROSTER: &[u8] = include_bytes!("../../assets/roster.bmp");
+pub(crate) const BRIDGE: &[u8] = include_bytes!("../../assets/ff-bridge.bmp");
+
 
 pub(crate) fn icon(instance: HINSTANCE) -> HICON {
-    // This ID matches the RT_GROUP_ICON in assets/fenrae.rc.
+    // This ID matches the RT_GROUP_ICON in assets/ff.rc.
     unsafe { LoadIconW(instance, 1_usize as *const u16) }
 }
 
@@ -85,23 +85,16 @@ pub(crate) fn contain(bitmap: &[u8], target: RECT) -> RECT {
 pub(crate) fn hero_portrait(
     dc: HDC,
     target: RECT,
-    _hero: crate::characters::roster::Hero,
+    hero: crate::characters::roster::Hero,
     face: bool,
 ) {
-    roster_portrait(dc, target, 0, face);
-}
-
-fn roster_portrait(dc: HDC, target: RECT, index: i32, face: bool) {
-    let width = (target.right - target.left).max(1);
-    let height = (target.bottom - target.top).max(1);
-    let source = if face {
-        box_at(176 * index + 32, 22, 112, 112)
-    } else {
-        let h = (176 * height / width).clamp(1, 220);
-        let w = (220 * width / height).clamp(1, 176);
-        box_at(176 * index + (176 - w) / 2, (220 - h) / 4, w, h)
+    use crate::characters::roster::Hero;
+    let bitmap: &[u8] = match hero {
+        Hero::One => include_bytes!("../../assets/blue-portrait.bmp"),
+        Hero::Two => include_bytes!("../../assets/red-portrait.bmp"),
     };
-    paint_portrait(dc, ROSTER, target, source, face);
+    let (w, h) = dimensions(bitmap);
+    paint_portrait(dc, bitmap, target, box_at(0, 0, w, h), face);
 }
 
 fn paint_portrait(dc: HDC, bitmap: &[u8], target: RECT, source: RECT, face: bool) {
@@ -201,8 +194,8 @@ pub(crate) fn dress(window: HWND) {
     }
 }
 
-pub(crate) fn ability_icon(dc: HDC, area: RECT, hero: crate::characters::roster::Hero, column: usize, cooling: bool) {
+pub(crate) fn ability_icon(dc: HDC, area: RECT, _hero: crate::characters::roster::Hero, column: usize, cooling: bool) {
     const ICONS: &[u8] = include_bytes!("../../assets/ability-icons.bmp");
-    let row = hero as i32 + if cooling { crate::characters::roster::Hero::ALL.len() as i32 } else { 0 };
+    let row = i32::from(cooling);
     paint(dc, ICONS, area, box_at(column as i32 * 64, row * 64, 64, 64), true);
 }

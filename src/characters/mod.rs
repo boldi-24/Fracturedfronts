@@ -1,4 +1,4 @@
-pub(crate) mod deafult;
+pub(crate) mod shared;
 pub(crate) mod roster;
 
 pub(crate) struct Stats {

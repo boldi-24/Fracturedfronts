@@ -89,7 +89,7 @@ impl MatchServer {
         let latest = Arc::new(Mutex::new(game.clone()));
         let published = Arc::clone(&latest);
         let worker = thread::Builder::new()
-            .name("fenrae-match".into())
+            .name("ff-match".into())
             .spawn(move || serve(receiver, game, published))?;
         Ok(Self {
             sender,
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn server_handles_click_once_and_checks_its_own_cooldown() {
-        let mut server = MatchServer::start(Hero::Deafult).unwrap();
+        let mut server = MatchServer::start(Hero::One).unwrap();
         let origin = server.snapshot().units[PLAYER].position;
         let cast = Order::Cast(1, origin + Point::at(-200., 0.));
         assert_eq!(server.snapshot().units[PLAYER].cooldown(1), 0.);

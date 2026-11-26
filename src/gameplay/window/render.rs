@@ -93,6 +93,11 @@ pub(super) fn paint_button(state: &MatchWindow, item: &DRAWITEMSTRUCT) {
 
 fn draw_selection(dc: HDC, state: &MatchWindow, area: RECT) {
     let width = area.right;
+    for (column, hero) in crate::characters::roster::Hero::ALL.into_iter().enumerate() {
+        let icon=super::icon_rect(column);
+        label(dc,state.normal,hero.name(),rect(icon.left-5,icon.bottom+3,70,24),TEXT,
+              DT_SINGLELINE | DT_CENTER);
+    }
     fill(dc, &rect(0, 0, width, 88), HEADER);
     fill(dc, &rect(0, 87, width, 1), BORDER);
     label(

@@ -47,7 +47,7 @@ fn every_card_casts_all_four_abilities_and_produces_visible_effects() {
 #[test]
 fn either_nexus_can_be_destroyed_from_the_start() {
     for (side, attacker, result) in [(Side::Red, PLAYER, 1), (Side::Blue, BOT, 2)] {
-        let mut game = Game::with_hero(Hero::Deafult);
+        let mut game = Game::with_hero(Hero::One);
         assert_eq!(game.units.len(), 4);
         game.hurt(attacker, side.nexus(), Damage::Physical(10000.));
         assert_eq!(game.result, result);
@@ -56,7 +56,7 @@ fn either_nexus_can_be_destroyed_from_the_start() {
 
 #[test]
 fn match_draws_at_the_twenty_minute_limit() {
-    let mut game = Game::with_hero(Hero::Deafult);
+    let mut game = Game::with_hero(Hero::One);
     game.result = 0;
     game.elapsed = MATCH_LENGTH;
     game.step(0.05);
@@ -65,7 +65,7 @@ fn match_draws_at_the_twenty_minute_limit() {
 
 #[test]
 fn movement_and_aim_work_on_both_ends_of_the_bridge() {
-    let mut game = Game::with_hero(Hero::Deafult);
+    let mut game = Game::with_hero(Hero::One);
     let point = Side::Red.home();
     game.command(point);
     near(game.destination.x, point.x);
@@ -106,7 +106,7 @@ fn lane_duel_reaches_a_result_with_continuous_player_commands() {
 
 #[test]
 fn attack_order_selects_by_cursor_then_stop_cancels_pursuit() {
-    let mut game = Game::with_hero(Hero::Deafult);
+    let mut game = Game::with_hero(Hero::One);
     let point = Point::at(700., LANE_CENTER);
     game.units[BOT].position = Point::at(450., LANE_CENTER);
     game.attack_unit_near(point);

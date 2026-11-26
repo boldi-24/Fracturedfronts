@@ -2,7 +2,8 @@ use super::Stats;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Hero {
-    Deafult,
+    One,
+    Two,
 }
 
 pub(crate) struct Profile {
@@ -17,9 +18,9 @@ pub(crate) struct Profile {
 }
  
 impl Hero {
-    pub(crate) const ALL: [Self; 1] = [Self::Deafult];
+    pub(crate) const ALL: [Self; 2] = [Self::One, Self::Two];
 
-    pub(crate) fn profile(self) -> &'static Profile { &super::deafult::PROFILE }
+    pub(crate) fn profile(self) -> &'static Profile { match self { Self::One => &super::shared::ONE, Self::Two => &super::shared::TWO } }
     pub(crate) fn name(self) -> &'static str { self.profile().name }
     pub(crate) fn stats(self) -> &'static Stats { &self.profile().stats }
     pub(crate) fn solar(self) -> bool { self.profile().solar }

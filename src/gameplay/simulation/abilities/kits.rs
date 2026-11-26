@@ -1,6 +1,6 @@
 
-#[path = "../../../characters/deafult/abilities.rs"]
-mod deafult_kit;
+#[path = "../../../characters/shared/abilities.rs"]
+mod shared_kit;
 use super::*;
 
 impl Unit {
@@ -44,7 +44,7 @@ impl Game {
         let profile = hero.profile();
         let index = [0, 2, 1, 3][slot as usize];
         self.units[source].set_cooldown(slot, profile.cooldowns[index]);
-        if !deafult_kit::cast(self, source, slot, point) {
+        if !shared_kit::cast(self, source, slot, point) {
             self.units[source].set_cooldown(slot, 0.);
         }
     }

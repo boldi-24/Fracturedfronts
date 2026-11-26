@@ -1,7 +1,9 @@
 mod abilities;
 mod effects;
 
-use super::geometry::{LANE_CENTER, Point, WORLD_WIDTH};
+use super::geometry::Point;
+#[cfg(test)]
+use super::geometry::{LANE_CENTER, WORLD_WIDTH};
 use crate::characters::roster::Hero;
 use crate::characters::Stats;
 use abilities::{SkillHit, Zone};
@@ -48,19 +50,14 @@ impl Side {
         }
     }
 
-    fn base_point(self, distance: f32) -> Point {
-        Point::at(
-            if self == Self::Blue {
-                distance
-            } else {
-                WORLD_WIDTH - distance
-            },
-            LANE_CENTER,
-        )
+    fn objective(self) -> Point {
+        match self {
+            Self::Blue => Point::at(157.*4., 221.*4.),
+            Self::Red => Point::at(509.*4., 301.*4.),
+        }
     }
-
     fn home(self) -> Point {
-        self.base_point(105.)
+        self.objective() + Point::at(-self.advance()*60., 0.)
     }
     fn advance(self) -> f32 {
         if self == Self::Blue { 1. } else { -1. }
@@ -201,7 +198,7 @@ impl Unit {
         }
     }
     fn walk(&mut self, destination: Point, dt: f32) {
-        let delta = destination - self.position;
+        let delta = super::map::waypoint(self.position, destination) - self.position;
         let speed =
             self.kind.speed() * (1. - self.status.slow.value());
         let next = (self.position + delta.direction() * delta.length().min(speed * dt)).lane();
@@ -266,12 +263,12 @@ impl Game {
 
 
     pub(crate) fn with_hero(hero: Hero) -> Self {
-        let opponent = hero;
+        let opponent = match hero { Hero::One => Hero::Two, Hero::Two => Hero::One };
         let units = [
             Unit::new(Kind::Hero(hero), Side::Blue, Side::Blue.home()),
             Unit::new(Kind::Hero(opponent), Side::Red, Side::Red.home()),
-            Unit::new(Kind::Nexus, Side::Blue, Side::Blue.base_point(195.)),
-            Unit::new(Kind::Nexus, Side::Red, Side::Red.base_point(195.)),
+            Unit::new(Kind::Nexus, Side::Blue, Side::Blue.objective()),
+            Unit::new(Kind::Nexus, Side::Red, Side::Red.objective()),
         ];
         Self {
             units,
@@ -329,7 +326,7 @@ impl Game {
                     .total_cmp(&b.position.distance(point))
             })
             .map(|(index, _)| index);
-        self.destination = point.lane();
+        self.destination = super::map::on_floor(point.lane());
     }
 
     fn reach(&self, a: usize, b: usize) -> bool {

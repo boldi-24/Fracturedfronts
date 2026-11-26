@@ -1,7 +1,8 @@
 use std::ops::{Add, Mul, Sub};
 
-pub(crate) const WORLD_WIDTH: f32 = 1536.;
-pub(crate) const WORLD_HEIGHT: f32 = WORLD_WIDTH;
+pub(crate) const WORLD_WIDTH: f32 = super::map::COLS as f32 * super::map::CELL;
+pub(crate) const WORLD_HEIGHT: f32 = super::map::ROWS as f32 * super::map::CELL;
+#[cfg(test)]
 pub(crate) const LANE_CENTER: f32 = WORLD_HEIGHT * 0.5;
 pub(crate) const LANE_MIN_Y: f32 = 28.;
 pub(crate) const LANE_MAX_Y: f32 = WORLD_HEIGHT - 28.;

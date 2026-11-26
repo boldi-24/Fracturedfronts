@@ -155,6 +155,7 @@ impl Game {
 
     fn dash_to(&mut self, source: usize, endpoint: Point) {
         let from = self.units[source].position;
+        let endpoint = crate::gameplay::map::clear_segment(from, endpoint);
         self.units[source].position = endpoint;
         self.fx(source, Shape::Dash, from, endpoint, 18., 0.48);
         if source == PLAYER {

@@ -1,6 +1,6 @@
 use super::rect;
 use crate::gameplay::{
-    geometry::{LANE_MAX_Y, LANE_MIN_Y, Point, WORLD_HEIGHT, WORLD_WIDTH},
+    geometry::{Point, WORLD_HEIGHT, WORLD_WIDTH},
     simulation::{Game, Kind, PLAYER, Side},
 };
 use crate::ui::{art, controls::fill, theme::rgb};
@@ -8,7 +8,7 @@ use windows_sys::Win32::{Foundation::{POINT, RECT}, Graphics::Gdi::HDC};
 
 fn bounds(area: RECT) -> RECT {
     let width = (area.right / 5).clamp(130, 224);
-    let height = width;
+    let height = ((width - 2*INSET) as f32 * WORLD_HEIGHT / WORLD_WIDTH).round() as i32 + 2*INSET;
     rect(area.right - width - 12, area.bottom - height - 12, width, height)
 }
 
@@ -37,9 +37,18 @@ pub(super) fn world_at(area: RECT, mouse: POINT) -> Option<Point> {
 pub(super) fn draw(dc: HDC, area: RECT, game: &Game) {
     let m = bounds(area);
     art::frame(dc, m, rgb(150,144,119), rgb(34,38,34));
-    let a = project(m, Point::at(0., LANE_MIN_Y));
-    let b = project(m, Point::at(WORLD_WIDTH, LANE_MAX_Y));
-    art::frame(dc, rect(a.x, a.y, b.x-a.x+1, b.y-a.y+1), rgb(109,108,88), rgb(66,69,55));
+    use crate::gameplay::map::{CELL, COLS, ROWS, floor};
+    for row in 0..ROWS {
+        let mut col=0;
+        while col<COLS {
+            if !floor(col,row) { col+=1; continue; }
+            let start=col;
+            while col<COLS && floor(col,row) {col+=1;}
+            let a=project(m,Point::at(start as f32*CELL,row as f32*CELL));
+            let b=project(m,Point::at(col as f32*CELL,(row+1) as f32*CELL));
+            fill(dc,&rect(a.x,a.y,b.x-a.x,b.y-a.y),rgb(161,148,118));
+        }
+    }
 
     // Draw actors above the objectives.
     for layer in 0..2 {
@@ -74,7 +83,7 @@ mod tests {
         for width in [645, 1160, 1920] {
             let area = rect(0, 0, width, 780);
             let m = bounds(area);
-            for (_, _, _, icon) in super::super::hud_slots(area, crate::characters::roster::Hero::Deafult) {
+            for (_, _, _, icon) in super::super::hud_slots(area, crate::characters::roster::Hero::One) {
                 assert!(icon.right < m.left);
             }
             for p in [Point::at(0., 0.), Point::at(WORLD_WIDTH * 0.6, WORLD_HEIGHT * 0.3), Point::at(WORLD_WIDTH, WORLD_HEIGHT)] {

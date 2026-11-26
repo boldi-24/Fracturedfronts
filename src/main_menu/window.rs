@@ -5,7 +5,7 @@ use crate::ui::{
     controls::{child, control, fill, font, place, typeface},
     theme::{ACCENT, BACKGROUND, BORDER, HEADER, MUTED, SELECTED_FILL, SURFACE, TEXT},
 };
-use std::{io, ptr::null_mut};
+use std::{cell::Cell, io, ptr::null_mut};
 use windows_sys::{
     Win32::{
         Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM},
@@ -20,7 +20,7 @@ use windows_sys::{
     w,
 };
 
-pub(crate) const WINDOW_TITLE: *const u16 = w!("Fenrae Eclipse");
+pub(crate) const WINDOW_TITLE: *const u16 = w!("Fractured Front");
 const WINDOW_CLASS: *const u16 = w!("MobaPrototypeWindow");
 
 const TITLE: u16 = 106;
@@ -42,6 +42,7 @@ const NAVIGATION: [(u16, *const u16, i32); 5] = [
 ];
 
 struct State {
+    menu_placement: Cell<Option<(i32, WINDOWPLACEMENT)>>,
     menu: Menu,
     match_window: match_window::MatchWindow,
     background: HBRUSH,
@@ -53,6 +54,7 @@ struct State {
 impl State {
     fn new() -> Self {
         Self {
+            menu_placement: Cell::new(None),
             menu: Menu::new(),
             match_window: match_window::MatchWindow::new(),
             // These handles are owned by the window state and released after the message loop.
@@ -339,6 +341,48 @@ fn draw_button(item: &DRAWITEMSTRUCT, state: &State) {
     }
 }
 
+fn monitor_area(window: HWND) -> Option<MONITORINFO> {
+    let monitor = unsafe { MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST) };
+    let mut info = MONITORINFO {
+        cbSize: size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    (unsafe { GetMonitorInfoW(monitor, &mut info) } != 0).then_some(info)
+}
+
+fn center_menu(window: HWND) {
+    let Some(info) = monitor_area(window) else { return };
+    let mut bounds = RECT::default();
+    if unsafe { GetWindowRect(window, &mut bounds) } == 0 { return; }
+    let work = info.rcWork;
+    let x = work.left + (work.right - work.left - (bounds.right - bounds.left)) / 2;
+    let y = work.top + (work.bottom - work.top - (bounds.bottom - bounds.top)).max(0) / 2;
+    unsafe { SetWindowPos(window, null_mut(), x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE); }
+}
+
+fn set_match_fullscreen(window: HWND, state: &State, enabled: bool) {
+    let flags = SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE;
+    if enabled {
+        if state.menu_placement.get().is_some() { return; }
+        let Some(info) = monitor_area(window) else { return };
+        let mut placement = WINDOWPLACEMENT { length: size_of::<WINDOWPLACEMENT>() as u32, ..Default::default() };
+        unsafe {
+            if GetWindowPlacement(window, &mut placement) == 0 { return; }
+            let style = GetWindowLongW(window, GWL_STYLE);
+            state.menu_placement.set(Some((style, placement)));
+            let area = info.rcMonitor;
+            SetWindowLongW(window, GWL_STYLE, ((style as u32 & !(WS_OVERLAPPEDWINDOW | WS_MAXIMIZE)) | WS_POPUP) as i32);
+            SetWindowPos(window, null_mut(), area.left, area.top, area.right - area.left, area.bottom - area.top, flags);
+        }
+    } else if let Some((style, placement)) = state.menu_placement.take() {
+        unsafe {
+            SetWindowLongW(window, GWL_STYLE, style);
+            SetWindowPlacement(window, &placement);
+            SetWindowPos(window, null_mut(), 0, 0, 0, 0, flags | SWP_NOMOVE | SWP_NOSIZE);
+        }
+    }
+}
+
 unsafe extern "system" fn window_proc(
     window: HWND,
     message: u32,
@@ -366,8 +410,10 @@ unsafe extern "system" fn window_proc(
             state.match_window.release_cursor();
             return unsafe { DefWindowProcW(window, message, wparam, lparam) };
         }
+        match_window::MATCH_FULLSCREEN => set_match_fullscreen(window, state, wparam != 0),
         match_window::MATCH_CLOSED => {
             if state.match_window.handle.get().is_null() {
+                set_match_fullscreen(window, state, false);
                 for (id, _, _) in NAVIGATION { unsafe { ShowWindow(child(window, id), SW_SHOWNA) }; }
                 refresh_view(window, state);
                 unsafe { SetFocus(child(window, LAUNCH)) };
@@ -439,6 +485,38 @@ unsafe extern "system" fn window_proc(
     0
 }
 
+#[cfg(test)]
+#[test]
+fn centered_menu_returns_to_original_bounds_after_fullscreen() {
+    fn bounds(window: HWND, client: bool) -> (i32, i32, i32, i32) {
+        let mut r = RECT::default();
+        unsafe {
+            if client { GetClientRect(window, &mut r); } else { GetWindowRect(window, &mut r); }
+        }
+        (r.left, r.top, r.right, r.bottom)
+    }
+    let state = State::new();
+    unsafe {
+        let window = CreateWindowExW(0, w!("STATIC"), WINDOW_TITLE, WS_OVERLAPPEDWINDOW,
+            0, 0, 800, 600, null_mut(), null_mut(), GetModuleHandleW(std::ptr::null()), std::ptr::null());
+        assert!(!window.is_null());
+        center_menu(window);
+        let menu = bounds(window, false);
+        let info = monitor_area(window).unwrap();
+        let work = info.rcWork;
+        assert_eq!((menu.2 - menu.0, menu.3 - menu.1), (800, 600));
+        assert_eq!(menu.0, work.left + (work.right - work.left - 800) / 2);
+        assert_eq!(menu.1, work.top + (work.bottom - work.top - 600).max(0) / 2);
+        set_match_fullscreen(window, &state, true);
+        let r = info.rcMonitor;
+        assert_eq!(bounds(window, false), (r.left, r.top, r.right, r.bottom));
+        assert_eq!(bounds(window, true), (0, 0, r.right - r.left, r.bottom - r.top));
+        set_match_fullscreen(window, &state, false);
+        assert_eq!(bounds(window, false), menu);
+        DestroyWindow(window);
+    }
+}
+
 pub(crate) fn run() -> io::Result<()> {
     let state = State::new();
     let instance = unsafe { GetModuleHandleW(std::ptr::null()) };
@@ -463,8 +541,8 @@ pub(crate) fn run() -> io::Result<()> {
             WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            1920,
-            1080,
+            1160,
+            730,
             null_mut(),
             null_mut(),
             instance,
@@ -474,6 +552,7 @@ pub(crate) fn run() -> io::Result<()> {
     if window.is_null() {
         return Err(io::Error::last_os_error());
     }
+    center_menu(window);
     art::dress(window);
     if let Err(error) = add_controls(window, instance, &state) {
         unsafe { DestroyWindow(window) };

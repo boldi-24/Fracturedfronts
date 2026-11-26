@@ -11,10 +11,10 @@ fn duel_renders_offscreen() {
         right: 1220,
         bottom: 650,
     };
-    let camera = Camera::at(area, Point::at(410., 100.), false);
-    let mut g = Game::with_hero(Hero::Deafult);
-    let player = Point::at(435., 120.);
-    let enemy = Point::at(528., 136.);
+    let camera = Camera::at(area, Point::at(625., 875.), false);
+    let mut g = Game::with_hero(Hero::One);
+    let player = Point::at(574., 866.);
+    let enemy = Point::at(690., 888.);
     g.units[0].position = player;
     g.units[1].position = enemy;
     g.destination = player;
@@ -45,7 +45,7 @@ fn duel_renders_offscreen() {
                 .chunks_exact(4)
                 .any(|p| p[2] > 160 && p[1] > 110 && p[0] < 100)
         );
-        if let Some(path) = std::env::var_os("FENRAE_PREVIEW_BMP") {
+        if let Some(path) = std::env::var_os("FF_PREVIEW_BMP") {
             let mut bitmap_file = b"BM".to_vec();
             bitmap_file.extend((54 + size as u32).to_le_bytes());
             bitmap_file.extend([0; 4]);
@@ -57,7 +57,7 @@ fn duel_renders_offscreen() {
             bitmap_file.extend(pixels);
             std::fs::write(path, bitmap_file).unwrap();
         }
-        if std::env::var_os("FENRAE_PROFILE_FOLLOW").is_some() {
+        if std::env::var_os("FF_PROFILE_FOLLOW").is_some() {
             let mut samples = Vec::new();
             for frame in 0..240 {
                 let center = player + Point::at(frame as f32 * 2., 0.);

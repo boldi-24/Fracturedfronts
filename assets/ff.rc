@@ -1,6 +1,6 @@
 #include <windows.h>
 
-1 ICON "assets/fenrae.ico"
+1 ICON "assets/ff.ico"
 
 1 VERSIONINFO
 FILEVERSION 0,2,0,0
@@ -12,9 +12,9 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "FileDescription", "Fenrae Eclipse\0"
-            VALUE "ProductName", "Fenrae Eclipse\0"
-            VALUE "OriginalFilename", "Fenrae Eclipse.exe\0"
+            VALUE "FileDescription", "Fractured Front\0"
+            VALUE "ProductName", "Fractured Front\0"
+            VALUE "OriginalFilename", "ff.exe\0"
             VALUE "FileVersion", "0.2.0\0"
             VALUE "ProductVersion", "0.2.0\0"
         END
