@@ -22,6 +22,7 @@ pub(super) enum Order {
     Move(Point),
     Attack(Point),
     Stop,
+    View(f32, bool),
 }
 
 impl Order {
@@ -31,6 +32,7 @@ impl Order {
             Self::Cast(slot, p) => (1, slot, p),
             Self::Move(p) => (2, 0, p),
             Self::Attack(p) => (3, 0, p),
+            Self::View(scale, top) => (5, u8::from(top), Point::at(scale, 0.)),
             Self::Stop => (4, 0, Point::default()),
         };
         let mut bytes = [0; PACKET_SIZE];
@@ -58,6 +60,10 @@ impl Order {
             (2, 0) => game.command(point),
             (3, 0) => game.attack_unit_near(point),
             (4, 0) => game.stop_player(),
+            (5, top @ 0..=1) if point.x > 0. => {
+                game.view_scale = point.x;
+                game.top_down = top == 1;
+            }
             _ => {}
         }
     }

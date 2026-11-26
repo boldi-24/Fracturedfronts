@@ -1,7 +1,7 @@
 use super::rect;
 use crate::gameplay::{
     geometry::{Point, WORLD_HEIGHT, WORLD_WIDTH},
-    simulation::{Game, Kind, PLAYER, Side},
+    simulation::{Game, Kind, PLAYER},
 };
 use crate::ui::{art, controls::fill, theme::rgb};
 use windows_sys::Win32::{Foundation::{POINT, RECT}, Graphics::Gdi::HDC};
@@ -53,7 +53,7 @@ pub(super) fn draw(dc: HDC, area: RECT, game: &Game) {
     // Draw actors above the objectives.
     for layer in 0..2 {
         for (i, unit) in game.units.iter().enumerate() {
-            if !unit.alive() || (unit.side == Side::Red && unit.status.concealed()) { continue; }
+            if !unit.alive() || !game.visible_unit(unit) { continue; }
             let order = usize::from(!unit.kind.structure());
             if order != layer { continue; }
             let POINT { x, y } = project(m, unit.position);

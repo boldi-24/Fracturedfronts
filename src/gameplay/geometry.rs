@@ -1,3 +1,8 @@
+pub(crate) const COS: f32 = 0.9510565;
+pub(crate) const SIN: f32 = 0.309017;
+pub(crate) const ELEV_SIN: f32 = 0.6691306;
+pub(crate) const ELEV_COS: f32 = 0.7431448;
+
 use std::ops::{Add, Mul, Sub};
 
 pub(crate) const WORLD_WIDTH: f32 = super::map::COLS as f32 * super::map::CELL;

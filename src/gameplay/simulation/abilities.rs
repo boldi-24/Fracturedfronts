@@ -129,7 +129,7 @@ impl Game {
         self.enemies(source, origin, range)
             .into_iter()
             .filter(|&target| {
-                !self.units[target].status.concealed()
+                !self.units[target].status.concealed() && (source != super::PLAYER || self.visible_unit(&self.units[target]))
                     && self.units[target].position.distance(point) <= 75.
                     && (!hero_only || self.units[target].kind.hero().is_some())
             })

@@ -461,6 +461,13 @@ fn timer(window: HWND, state: &MatchWindow) {
         let elapsed = (now - round.last_tick).as_secs_f32().min(0.033);
         round.last_tick = now;
         round.game = round.server.snapshot();
+        let top = state.top_down.get();
+        let camera = scene::Camera::at(board(viewport(window)), state.camera.get(), top);
+        if round.game.view_scale != camera.scale || round.game.top_down != top {
+            round.server.send(Order::View(camera.scale, top));
+            round.game.view_scale = camera.scale;
+            round.game.top_down = top;
+        }
         if state.follow.get() {
             let player = round.game.units[PLAYER];
             if player.alive() {

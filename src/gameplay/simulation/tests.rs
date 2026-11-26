@@ -9,8 +9,8 @@ fn every_card_casts_all_four_abilities_and_produces_visible_effects() {
     for hero in Hero::ALL {
         for slot in 0..4 {
             let mut game = Game::with_hero(hero);
-            game.units[PLAYER].position = Point::at(480., 280.);
-            game.units[BOT].position = Point::at(540., 280.);
+            game.units[PLAYER].position = Side::Blue.home();
+            game.units[BOT].position = Side::Blue.home() + Point::at(60., 0.);
             game.units[PLAYER].health = hero.stats().health * 0.19;
             game.cast(PLAYER, slot, game.units[BOT].position);
             let player = game.units[PLAYER];
@@ -73,9 +73,10 @@ fn movement_and_aim_work_on_both_ends_of_the_bridge() {
     let edge = Point::at(WORLD_WIDTH + 500., -25.).lane();
     near(edge.x, WORLD_WIDTH - 28.);
     near(edge.y, super::super::geometry::LANE_MIN_Y);
-    game.units[PLAYER].position = Point::at(840., LANE_CENTER);
-    game.cast(PLAYER, 1, Point::at(990., LANE_CENTER));
-    assert!(game.units[PLAYER].position.x < 840.);
+    let start = Side::Blue.objective();
+    game.units[PLAYER].position = start;
+    game.cast(PLAYER, 1, start + Point::at(150., 0.));
+    assert!(game.units[PLAYER].position.x < start.x);
     assert!(game.units[PLAYER].cast_animation > 0.);
 }
 
@@ -107,8 +108,8 @@ fn lane_duel_reaches_a_result_with_continuous_player_commands() {
 #[test]
 fn attack_order_selects_by_cursor_then_stop_cancels_pursuit() {
     let mut game = Game::with_hero(Hero::One);
-    let point = Point::at(700., LANE_CENTER);
-    game.units[BOT].position = Point::at(450., LANE_CENTER);
+    let point = Side::Blue.home() + Point::at(240., 0.);
+    game.units[BOT].position = point;
     game.attack_unit_near(point);
     assert_eq!(game.target, Some(BOT));
     game.player_update(0.05);
@@ -121,4 +122,40 @@ fn attack_order_selects_by_cursor_then_stop_cancels_pursuit() {
     game.units[BOT].status.hidden = 1.;
     game.attack_unit_near(point);
     assert!(game.target.is_none());
+}
+
+#[test]
+fn enemies_become_visible_only_after_rounding_the_corner() {
+    let mut game = Game::with_hero(Hero::One);
+    let plan = |x, y| Point::at(x, y) * super::super::map::PLAN_SCALE;
+    let target = plan(155., 103.);
+    game.units[BOT].position = target;
+    game.units[PLAYER].position = plan(139., 78.);
+    game.units[PLAYER].facing = (target - game.units[PLAYER].position).direction();
+    assert!(!game.sees(target));
+    game.attack_unit_near(target);
+    assert!(game.target.is_none());
+    game.units[PLAYER].position = plan(139., 103.);
+    game.units[PLAYER].facing = Point::at(1., 0.);
+    assert!(game.sees(target));
+    game.attack_unit_near(target);
+    assert_eq!(game.target, Some(BOT));
+    game.units[PLAYER].facing = Point::at(-1., 0.);
+    assert!(game.sees(target));
+    game.units[PLAYER].position = plan(139., 78.);
+    assert!(!game.sees(target));
+    game.player_update(0.016);
+    assert!(game.target.is_none());
+}
+
+#[test]
+fn sight_radius_is_700_screen_pixels() {
+    let mut game = Game::with_hero(Hero::One);
+    game.top_down = true;
+    game.view_scale = 5.;
+    let start = game.units[PLAYER].position;
+    for direction in [Point::at(1., 0.), Point::at(-1., 0.), Point::at(0., 1.), Point::at(0., -1.)] {
+        assert!(game.sees(start + direction * 140.));
+        assert!(!game.sees(start + direction * 141.));
+    }
 }

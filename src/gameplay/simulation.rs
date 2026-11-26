@@ -52,8 +52,8 @@ impl Side {
 
     fn objective(self) -> Point {
         match self {
-            Self::Blue => Point::at(157.*4., 221.*4.),
-            Self::Red => Point::at(509.*4., 301.*4.),
+            Self::Blue => Point::at(157.*super::map::PLAN_SCALE, 221.*super::map::PLAN_SCALE),
+            Self::Red => Point::at(509.*super::map::PLAN_SCALE, 301.*super::map::PLAN_SCALE),
         }
     }
     fn home(self) -> Point {
@@ -249,6 +249,8 @@ pub(crate) struct Game {
     pub(crate) target: Option<usize>,
     pub(crate) elapsed: f32,
     pub(crate) result: u32,
+    pub(super) view_scale: f32,
+    pub(super) top_down: bool,
     retreat: bool,
     pub(crate) shots: Vec<Shot>,
     pub(crate) marks: Vec<Mark>,
@@ -276,6 +278,8 @@ impl Game {
             target: None,
             elapsed: 0.,
             result: 0,
+            view_scale: 1.,
+            top_down: false,
             retreat: false,
             shots: Vec::new(),
             marks: Vec::new(),
@@ -285,6 +289,26 @@ impl Game {
             projectile_group: 0,
             projectile_hits: [0; UNIT_COUNT],
         }
+    }
+
+    pub(super) fn sees(&self, point: Point) -> bool {
+        let player = self.units[PLAYER];
+        if !player.alive() { return false; }
+        let offset = point - player.position;
+        use super::geometry::{COS, SIN, ELEV_SIN};
+        const SIGHT_RADIUS_PX: f32 = 1200.;
+        let projected = if self.top_down {
+            offset
+        } else {
+            Point::at(COS * offset.x + SIN * offset.y, (-SIN * offset.x + COS * offset.y) * ELEV_SIN)
+        };
+        let radius = SIGHT_RADIUS_PX / self.view_scale;
+        projected.x * projected.x + projected.y * projected.y <= radius * radius
+            && super::map::clear_segment(player.position, point).distance(point) < 0.001
+    }
+
+    pub(super) fn visible_unit(&self, unit: &Unit) -> bool {
+        unit.side == self.units[PLAYER].side || (!unit.status.concealed() && self.sees(unit.position))
     }
 
     pub(crate) fn stop_player(&mut self) {
@@ -298,7 +322,7 @@ impl Game {
         if self.result != 0 || !player.alive() { return; }
         let closest = self.units.iter().enumerate()
             .filter(|(_, u)| u.side != player.side && !u.kind.structure()
-                && u.alive() && !u.status.concealed())
+                && u.alive() && self.visible_unit(u))
             .min_by(|(_, a), (_, b)| a.position.distance(cursor).total_cmp(&b.position.distance(cursor)));
         if let Some((index, _)) = closest {
             self.target = Some(index);
@@ -312,7 +336,7 @@ impl Game {
         let valid_hit = |unit: &&Unit| {
             unit.alive()
                 && unit.side == Side::Red
-                && !unit.status.concealed()
+                && self.visible_unit(unit)
                 && unit.position.distance(point) <= unit.kind.radius() + 9.
         };
         self.target = self
@@ -486,7 +510,7 @@ impl Game {
     fn player_update(&mut self, dt: f32) {
         if let Some(target) = self
             .target
-            .filter(|&target| self.units[target].alive() && !self.units[target].status.concealed())
+            .filter(|&target| self.units[target].alive() && self.visible_unit(&self.units[target]))
         {
             self.move_or_strike(PLAYER, target, dt);
         } else if self.target.is_some() {

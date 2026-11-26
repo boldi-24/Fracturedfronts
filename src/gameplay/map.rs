@@ -5,7 +5,8 @@ use std::{cell::RefCell, collections::VecDeque, sync::LazyLock};
 
 pub(super) const COLS: usize = 160;
 pub(super) const ROWS: usize = 96;
-pub(super) const CELL: f32 = 16.;
+pub(super) const CELL: f32 = 32.;
+pub(super) const PLAN_SCALE: f32 = CELL / 4.;
 const COUNT: usize = COLS * ROWS;
 const FLOOR: &[(usize, usize, usize, usize)] = &[
     // Northwest chamber group and its two approaches
@@ -119,9 +120,9 @@ mod tests {
     use super::*;
     #[test]
     fn a_unit_walks_through_corridors_between_objectives() {
-        let mut current=Point::at(157.*4.,221.*4.);
-        let goal=Point::at(509.*4.,301.*4.);
-        for _ in 0..2400 {
+        let mut current=Point::at(157.*PLAN_SCALE,221.*PLAN_SCALE);
+        let goal=Point::at(509.*PLAN_SCALE,301.*PLAN_SCALE);
+        for _ in 0..4800 {
             let delta=waypoint(current,goal)-current;
             current=current+delta.direction()*delta.length().min(5.);
             assert!(GRID[index(current)]);
@@ -131,7 +132,7 @@ mod tests {
     }
     #[test]
     fn all_rooms_connect_to_the_western_objective() {
-        let paths=routes(index(Point::at(157.*4.,221.*4.)));
+        let paths=routes(index(Point::at(157.*PLAN_SCALE,221.*PLAN_SCALE)));
         assert!((0..COUNT).all(|i| !GRID[i] || paths[i]!=usize::MAX));
     }
 }

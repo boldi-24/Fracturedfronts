@@ -48,6 +48,7 @@ pub(super) fn shade(color: u32, k: f32) -> u32 {
 }
 #[derive(Default)]
 pub(super) struct Mesh {
+    fog: Vec<u32>,
     pixels: Vec<u32>,
     depth: Vec<f32>,
     width: usize,
@@ -116,7 +117,7 @@ impl TerrainPatch {
 }
 
 thread_local! { static FRAME:RefCell<Mesh> = RefCell::new(Mesh::default()); }
-pub(super) fn render(dc: HDC, camera: Camera, submit: impl FnOnce(&mut Mesh)) {
+pub(super) fn render(dc: HDC, camera: Camera, game: &super::Game, submit: impl FnOnce(&mut Mesh)) {
     FRAME.with_borrow_mut(|m| {
         let area = camera.area;
         let w = (area.right - area.left).max(1);
@@ -150,6 +151,35 @@ pub(super) fn render(dc: HDC, camera: Camera, submit: impl FnOnce(&mut Mesh)) {
             let dest = row * width..(row+1) * width;
             m.pixels[dest.clone()].copy_from_slice(&patch.pixels[src..src+width]);
             m.depth[dest].copy_from_slice(&patch.depth[src..src+width]);
+        }
+        // Interpolate visibility between neighboring samples at shadow edges.
+        const STEP: usize = 4;
+        let span = STEP as u32;
+        let cols = width.div_ceil(STEP) + 1;
+        let rows = height.div_ceil(STEP) + 1;
+        m.fog.resize(cols * rows, 0);
+        for (i, light) in m.fog.iter_mut().enumerate() {
+            let ground = camera.ground(
+                area.left + ((i % cols * STEP) as f32 / ratio).round() as i32,
+                area.top + ((i / cols * STEP) as f32 / ratio).round() as i32,
+            );
+            *light = if game.sees(ground) { 256 } else { 64 };
+        }
+        for y in 0..height {
+            let fy = (y % STEP) as u32;
+            for (col, pixels) in m.pixels[y*width..(y+1)*width].chunks_mut(STEP).enumerate() {
+                let i = y / STEP * cols + col;
+                let left = m.fog[i] * (span - fy) + m.fog[i+cols] * fy;
+                let right = m.fog[i+1] * (span - fy) + m.fog[i+cols+1] * fy;
+                if left == 256 * span && right == 256 * span { continue; }
+                for (x, pixel) in pixels.iter_mut().enumerate() {
+                    let x = x as u32;
+                    let light = (left * (span - x) + right * x) / (span * span);
+                    let rb = ((*pixel & 0xff00ff) * light >> 8) & 0xff00ff;
+                    let g = ((*pixel & 0x00ff00) * light >> 8) & 0x00ff00;
+                    *pixel = rb | g;
+                }
+            }
         }
         submit(m);
         let mut info = BITMAPINFO::default();

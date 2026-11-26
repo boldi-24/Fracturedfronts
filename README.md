@@ -1,12 +1,22 @@
 # Fractured Front
 
 Natywna aplikacja Windows w Rust. Aby uruchomić grę, otwórz `ff.exe`.
-
-1. Wybierz **Graj → Pojedynek 1 na 1 z botem → Rozpocznij mecz**.
-2. Wybierz **Rozpocznij pojedynek**. Wybierz Postać 1 lub Postać 2. Bot gra drugim bohaterem.
-3. Kliknij teren, aby się ruszyć, lub wroga, aby atakować. **S** zatrzymuje ruch i atak. **T** wybiera wrogiego bohatera najbliżej kursora i rozpoczyna atak. **A** pokazuje zasięg podstawowego ataku do następnego kliknięcia. Celuj kursorem i używaj **Q**, **W**, **E** i **R**.
-4. Przesuń kursor do krawędzi widoku, żeby przesuwać kamerę po mapie. Przytrzymaj spację, żeby kamera śledziła bohatera. **V** przełącza kąt widoku. Kursor pozostaje w obszarze aktywnego meczu. **Alt+Tab** zwalnia go po przełączeniu aplikacji. Kliknij minimapę w prawym dolnym rogu, aby przesunąć kamerę.
-5. Walcz w kompleksie pomieszczeń i korytarzy 2560 × 1536 z planu `assets/mapa.png`. Zniszczenie generatora Nexus przeciwnika kończy mecz. Oba generatory są dostępne od początku.
+Aby uruchomić tą grę jako że nie jest zweryfikowana przez windows trzeba wyłączyć smart app control
+aby to zrobić 
+• Otwórz Zabezpieczenia Windows (wyszukaj w menu Start).
+• Przejdź do sekcji Kontrola aplikacji i przeglądarki.
+• Kliknij Ustawienia funkcji Inteligentna kontrola aplikacji.
+• Zmień przełącznik na Wyłączone.
+## zmiany w kodzie
+po każdej zmianie w kodzie trzeba skompilować na nowo plik ff.exe robi się to poleceniem 
+cargo run --release
+jeśli nie działa dalej należy wykonać te komendy 
+$env:Path = "$env:USERPROFILE\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin;$env:Path"
+cd "folder w którym znajduje się fractuder front"
+cargo run --release
+w terminalu w folderze fractured front
+jeśli te zmiany mają zostać zapisane trzeba wprowadzić polecenie 
+Copy-Item .\target\release\moba-prototyp.exe .\ff.exe -Force
 
 ## Wspólne umiejętności obu postaci
 

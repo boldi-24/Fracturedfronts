@@ -122,12 +122,12 @@ pub(super) fn terrain(m: &mut Mesh, camera: Camera) {
         }
     }
     // The round chamber in the northeast and the columns in the southern hall.
-    let shrine=Point::at(561.*4.,102.*4.);
+    let shrine=Point::at(561.*crate::gameplay::map::PLAN_SCALE,102.*crate::gameplay::map::PLAN_SCALE);
     ring(m,shrine,43.,0.2,4.,MARK);
     ring(m,shrine,17.,0.2,3.,STEEL);
     for x in [302.,320.,338.,355.,373.] {
         for y in [313.,333.] {
-            let base=Point::at(x*4.,y*4.);
+            let base=Point::at(x*crate::gameplay::map::PLAN_SCALE,y*crate::gameplay::map::PLAN_SCALE);
             if camera.visible(base,45.) { frustum(m,base,0.,20.,6.,5.,8,0.,PLASTER); }
         }
     }

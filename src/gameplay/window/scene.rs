@@ -14,15 +14,12 @@ use landscape::{nexus, ring};
 use raster::{Mesh, Vec3, shade};
 use windows_sys::Win32::{Foundation::RECT, Graphics::Gdi::HDC};
 
-const COS: f32 = 0.9510565;
-const SIN: f32 = 0.309017;
-const ELEV_SIN: f32 = 0.6691306;
-const ELEV_COS: f32 = 0.7431448;
+use crate::gameplay::geometry::{COS, SIN, ELEV_SIN, ELEV_COS};
 #[derive(Clone, Copy)]
 pub(super) struct Camera {
     area: RECT,
     center: Point,
-    scale: f32,
+    pub(super) scale: f32,
     top: bool,
 }
 impl Camera {
@@ -85,7 +82,7 @@ impl Camera {
                 u.alive()
                     && (u.side == Side::Red
                         || (include_allies && !matches!(u.kind, Kind::Nexus)))
-                    && !(u.side == Side::Red && u.status.concealed())
+                    && game.visible_unit(u)
             })
             .filter_map(|(i, u)| {
                 let (h, r) = model_bounds(u.kind);
@@ -127,7 +124,7 @@ pub(super) fn team(side: Side) -> u32 {
     }
 }
 pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
-    raster::render(dc, camera, |m| {
+    raster::render(dc, camera, game, |m| {
         let player = game.units[PLAYER];
         if show_range && player.alive() && game.result == 0 {
             ring(m, player.position, player.attack_range(), 1.1, 1.6, team(player.side));
@@ -139,7 +136,7 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
             ring(m, game.destination, 6., 1., 1.3, team(Side::Blue));
         }
         for (i, u) in game.units.iter().enumerate() {
-            if !camera.visible(u.position, 130.) || (u.side == Side::Red && u.status.concealed()) {
+            if !camera.visible(u.position, 130.) || !game.visible_unit(u) {
                 continue;
             }
             if !u.alive() {
@@ -163,6 +160,7 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
             }
         }
         for shot in &game.shots {
+            if !game.sees(shot.position) { continue; }
             let c = match shot.spell_tone(game) {
                 Some(Tone::Eclipse) => rgb(148, 190, 209),
                 Some(Tone::Solar) => rgb(254, 197, 88),
@@ -174,6 +172,7 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
             m.gem(nose, 4., 10., c);
         }
         for mark in &game.marks {
+            if !game.sees(mark.from) || !game.sees(mark.to) { continue; }
             m.segment(
                 Vec3::at(mark.from, 15.),
                 Vec3::at(mark.to, 16.),
@@ -187,6 +186,7 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
         }
         m.translucent = true;
         for e in &game.effects {
+            if !game.sees(e.from) || !game.sees(e.to) { continue; }
             if camera.visible(e.to, e.radius + 80.) || camera.visible(e.from, e.radius + 80.) {
                 models::effect(m, e, game.elapsed)
             }
@@ -196,7 +196,7 @@ pub(super) fn draw(dc: HDC, camera: Camera, game: &Game, show_range: bool) {
     for u in game
         .units
         .iter()
-        .filter(|u| u.alive() && !(u.side == Side::Red && u.status.concealed()))
+        .filter(|u| u.alive() && game.visible_unit(u))
     {
         let (h, r) = model_bounds(u.kind);
         let (x, y, _) = camera.project(Vec3::at(u.position, h + 7.));

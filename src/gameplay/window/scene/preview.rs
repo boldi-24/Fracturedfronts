@@ -11,10 +11,10 @@ fn duel_renders_offscreen() {
         right: 1220,
         bottom: 650,
     };
-    let camera = Camera::at(area, Point::at(625., 875.), false);
+    let camera = Camera::at(area, Point::at(1250., 1750.), false);
     let mut g = Game::with_hero(Hero::One);
-    let player = Point::at(574., 866.);
-    let enemy = Point::at(690., 888.);
+    let player = Point::at(1190., 1750.);
+    let enemy = Point::at(1310., 1760.);
     g.units[0].position = player;
     g.units[1].position = enemy;
     g.destination = player;
